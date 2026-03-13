@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: nexus-postgres
+    environment:
+      POSTGRES_DB: nexus
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexus-network
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexus-api
+    environment:
+      DATABASE_URL: postgresql://nexus:nexus@postgres:5432/nexus
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: nexus
+      DB_USERNAME: nexus
+      DB_PASSWORD: nexus
+      JWT_SECRET: local_dev_secret_change_me_in_production
+      JWT_EXPIRES_IN: 15m
+      API_PORT: 4001
+      FRONTEND_URL: http://192.168.2.42:5100
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    ports:
+      - "4100:4001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+      - ./backend/storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run start:dev
+    networks:
+      - nexus-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://192.168.2.42:4100/api
+    container_name: nexus-frontend
+    ports:
+      - "5100:80"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    environment:
+      VITE_API_URL: http://192.168.2.42:4100/api
+    networks:
+      - nexus-network
+
+volumes:
+  postgres_data:
+
+networks:
+  nexus-network:
+    driver: bridge
