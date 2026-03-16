@@ -8,9 +8,14 @@ import { FilesModule } from './modules/files/files.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { AuditModule } from './modules/audit/audit.module';
-import { ConfigModule as NexusConfigModule } from './modules/config/config.module';
+import { AppConfigModule } from './modules/app-config/config.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { N8nModule } from './modules/n8n/n8n.module';
+import { MetricsModule } from './modules/metrics/metrics.module';
+import { DomainsModule } from './modules/domains/domains.module';
+import { BlocklistModule } from './modules/blocklist/blocklist.module';
+import { TicketsModule } from './modules/tickets/tickets.module';
 
 @Module({
   imports: [
@@ -25,7 +30,12 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     IngestionModule,
     KnowledgeModule,
     AuditModule,
-    NexusConfigModule,
+    AppConfigModule,
+    N8nModule,
+    MetricsModule,
+    DomainsModule,
+    BlocklistModule,
+    TicketsModule,
   ],
   providers: [
     {

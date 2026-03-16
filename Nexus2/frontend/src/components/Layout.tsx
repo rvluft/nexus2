@@ -1,83 +1,37 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
-import { useTheme } from '../lib/theme';
-
-const navItems = [
-  { path: '/', label: 'Dashboard', icon: '📊' },
-  { path: '/files', label: 'Arquivos', icon: '📁' },
-  { path: '/knowledge', label: 'Conhecimento', icon: '📚' },
-  { path: '/admin/users', label: 'Usuários', icon: '👥', roles: ['admin', 'manager'] },
-  { path: '/admin/audit', label: 'Auditoria', icon: '🔍', roles: ['admin', 'manager'] },
-];
+import { Outlet } from 'react-router-dom';
+import AppSidebar from './AppSidebar';
+import DashboardHeader from './DashboardHeader';
 
 export default function Layout() {
-  const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const filteredNav = navItems.filter((item) =>
-    item.roles ? item.roles.includes(user?.role?.name || '') : true
-  );
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-secondary text-white fixed h-full">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-2">
-            <h1 className="text-2xl font-bold text-lumen-turquoise">Nexus</h1>
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-              title={theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}
-            >
-              {theme === 'light' ? '🌙' : '☀️'}
-            </button>
-          </div>
-          <p className="text-sm text-gray-300 mt-1">Knowledge Base</p>
-        </div>
+    <div className="flex h-screen w-full overflow-hidden">
+      <AppSidebar />
+      <div
+        className="flex-1 flex flex-col min-w-0 relative"
+        style={{
+          background:
+            'linear-gradient(135deg, hsl(220 40% 6%) 0%, hsl(240 30% 10%) 25%, hsl(260 35% 12%) 50%, hsl(230 40% 8%) 75%, hsl(210 35% 6%) 100%)',
+        }}
+      >
+        {/* Subtle glow effects */}
+        <div
+          className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full opacity-20 blur-[120px] pointer-events-none"
+          style={{ background: 'hsl(217 70% 40%)' }}
+        />
+        <div
+          className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full opacity-15 blur-[100px] pointer-events-none"
+          style={{ background: 'hsl(270 60% 45%)' }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-10 blur-[150px] pointer-events-none"
+          style={{ background: 'hsl(200 50% 35%)' }}
+        />
 
-        <nav className="mt-8">
-          {filteredNav.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center px-6 py-3 text-sm font-medium transition-colors ${
-                location.pathname === item.path
-                  ? 'bg-primary text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-              }`}
-            >
-              <span className="mr-3">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="absolute bottom-0 w-full p-6 border-t border-gray-700">
-          <div className="text-sm mb-4">
-            <p className="font-medium">{user?.name}</p>
-            <p className="text-gray-400 text-xs">{user?.role?.name}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors"
-          >
-            Sair
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 ml-64 p-8">
-        <Outlet />
-      </main>
+        <DashboardHeader />
+        <main className="flex-1 overflow-auto p-6 relative z-10">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

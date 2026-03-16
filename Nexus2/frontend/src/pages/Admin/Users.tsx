@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, User } from '../../lib/api';
+import { motion } from 'framer-motion';
+import { UserPlus, Edit3, UserX, X } from 'lucide-react';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
@@ -40,7 +42,7 @@ export default function AdminUsers() {
       email: user.email,
       name: user.name,
       password: '',
-      role_id: user.role_id,
+      role_id: user.role?.id || '',
     });
     setShowModal(true);
   };
@@ -48,10 +50,13 @@ export default function AdminUsers() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload: any = { ...formData };
+      if (!payload.role_id) delete payload.role_id;
+      if (!payload.password) delete payload.password;
       if (editUser) {
-        await api.patch(`/users/${editUser.id}`, formData);
+        await api.patch(`/users/${editUser.id}`, payload);
       } else {
-        await api.post('/users', formData);
+        await api.post('/users', payload);
       }
       setShowModal(false);
       loadUsers();
@@ -73,19 +78,25 @@ export default function AdminUsers() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-secondary">Usuários</h1>
-        <button onClick={openCreate} className="btn-primary">
-          + Novo Usuário
+        <h1 className="text-xl font-medium text-foreground">Usuários</h1>
+        <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+          <UserPlus className="h-4 w-4" strokeWidth={1.5} />
+          Novo Usuário
         </button>
       </div>
 
-      <div className="card">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="card overflow-hidden p-0"
+      >
         {loading ? (
-          <div className="p-8 text-center">Carregando...</div>
+          <div className="p-8 text-center text-muted-foreground">Carregando...</div>
         ) : (
           <table className="table">
             <thead>
-              <tr className="bg-gray-50 border-b">
+              <tr className="border-b border-border/60">
                 <th className="table-th">Nome</th>
                 <th className="table-th">Email</th>
                 <th className="table-th">Role</th>
@@ -93,54 +104,85 @@ export default function AdminUsers() {
                 <th className="table-th text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border/30">
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.id} className="hover:bg-secondary/20 transition-colors">
                   <td className="table-td font-medium">{user.name}</td>
-                  <td className="table-td">{user.email}</td>
+                  <td className="table-td text-muted-foreground">{user.email}</td>
                   <td className="table-td">
-                    <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                    <span
+                      className="px-2 py-1 rounded-inner text-xs font-medium"
+                      style={{
+                        background: 'hsl(217 70% 55% / 0.15)',
+                        color: 'hsl(217 70% 65%)',
+                      }}
+                    >
                       {user.role?.name || 'viewer'}
                     </span>
                   </td>
                   <td className="table-td">
                     {user.is_active ? (
-                      <span className="text-green-600 text-sm">Ativo</span>
+                      <span className="flex items-center gap-1.5 text-sm">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                        <span className="text-success">Ativo</span>
+                      </span>
                     ) : (
-                      <span className="text-red-600 text-sm">Inativo</span>
+                      <span className="flex items-center gap-1.5 text-sm">
+                        <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+                        <span className="text-destructive">Inativo</span>
+                      </span>
                     )}
                   </td>
-                  <td className="table-td text-right space-x-2">
-                    <button
-                      onClick={() => openEdit(user)}
-                      className="text-primary text-sm hover:underline"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user.id)}
-                      className="text-red-600 text-sm hover:underline"
-                    >
-                      Desativar
-                    </button>
+                  <td className="table-td text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => openEdit(user)}
+                        className="p-1.5 hover:bg-secondary rounded-inner transition-colors text-muted-foreground hover:text-primary"
+                        title="Editar"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="p-1.5 hover:bg-destructive/10 rounded-inner transition-colors text-muted-foreground hover:text-destructive"
+                        title="Desativar"
+                      >
+                        <UserX className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </div>
+      </motion.div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {editUser ? 'Editar Usuário' : 'Novo Usuário'}
-            </h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="card w-full max-w-md"
+            style={{
+              background: 'linear-gradient(145deg, hsl(240 10% 6%) 0%, hsl(230 15% 9%) 100%)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium text-foreground">
+                {editUser ? 'Editar Usuário' : 'Novo Usuário'}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1.5 hover:bg-secondary rounded-inner transition-colors text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Nome</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Nome</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -150,7 +192,7 @@ export default function AdminUsers() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
                 <input
                   type="email"
                   value={formData.email}
@@ -160,8 +202,8 @@ export default function AdminUsers() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Senha {editUser && '(deixe vazia para manter)'}
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Senha {editUser && <span className="text-muted-foreground font-normal">(deixe vazia para manter)</span>}
                 </label>
                 <input
                   type="password"
@@ -172,7 +214,7 @@ export default function AdminUsers() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Role</label>
                 <select
                   value={formData.role_id}
                   onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
@@ -185,20 +227,20 @@ export default function AdminUsers() {
                   <option value="550e8400-e29b-41d4-a716-446655440003">Viewer</option>
                 </select>
               </div>
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                  className="btn-secondary"
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary px-4 py-2">
+                <button type="submit" className="btn-primary">
                   {editUser ? 'Salvar' : 'Criar'}
                 </button>
               </div>
             </form>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>

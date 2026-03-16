@@ -41,7 +41,6 @@ services:
       - "4100:4001"
     volumes:
       - ./backend:/app
-      - /app/node_modules
       - ./logs:/app/logs
       - ./backend/storage:/app/storage
     depends_on:
@@ -62,7 +61,6 @@ services:
       - "5100:80"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
     depends_on:
       - api
     environment:

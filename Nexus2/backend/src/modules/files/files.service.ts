@@ -4,12 +4,18 @@ import { createWriteStream, promises as fs } from 'fs';
 import * as crypto from 'crypto';
 import { PostgresService } from '../../database/postgres.service';
 import path from 'path';
+import { N8nFilesService } from './n8n-files.service';
+import { AppConfigService } from '../app-config/config.service';
 
 @Injectable()
 export class FilesService {
   private storageDir = '/app/storage/uploads';
 
-  constructor(private postgresService: PostgresService) {
+  constructor(
+    private postgresService: PostgresService,
+    private n8nFilesService: N8nFilesService,
+    private appConfig: AppConfigService,
+  ) {
     // Ensure storage exists (Docker volume mounted)
   }
 
@@ -47,8 +53,21 @@ export class FilesService {
 
     const file = rows[0];
 
-    // TODO: trigger n8n ingestion via webhook (assíncrono)
-    // await this.triggerN8nIngestion(file.id, storagePath, originalName);
+    // Montar URL pública para download do arquivo
+    const baseUrl = this.configService.get<string>('API_PUBLIC_URL') || 'http://localhost:4100';
+    const downloadUrl = `${baseUrl}/storage/${file.filename}`;
+
+    // Notificar n8n/Dropbox de forma assíncrona
+    this.n8nFilesService
+      .notifyUpload({
+        id: file.id,
+        original_name: file.original_name,
+        mime_type: file.mime_type,
+        size_bytes: file.size_bytes,
+        download_url: downloadUrl,
+        callbackUrl: this.appConfig.get<string>('N8N_WEBHOOK_STATUS_URL'),
+      })
+      .catch(() => undefined);
 
     return file;
   }
@@ -133,6 +152,21 @@ export class FilesService {
     };
   }
 
+  async updateStatus(id: string, status: string) {
+    const ALLOWED = ['uploaded', 'processing', 'processed', 'error'];
+    if (!ALLOWED.includes(status)) {
+      throw new Error(`Status inválido: ${status}`);
+    }
+    const sql = `
+      UPDATE nexus.files SET status = $1, updated_at = NOW()
+      WHERE id = $2 AND deleted_at IS NULL
+      RETURNING id, status, updated_at
+    `;
+    const { rows } = await this.postgresService.query(sql, [status, id]);
+    if (rows.length === 0) throw new NotFoundException('Arquivo não encontrado');
+    return rows[0];
+  }
+
   async reprocess(id: string, userId: string) {
     const file = await this.findOne(id, userId);
 
@@ -173,14 +207,26 @@ export class FilesService {
     if (rows.length === 0) {
       throw new NotFoundException('Erro ao remover arquivo');
     }
+    // Melhor esforço: remover também em Dropbox via n8n
+    this.n8nFilesService.deleteFile(id).catch(() => undefined);
     return { message: 'Arquivo removido com sucesso' };
   }
 
   async getDownloadUrl(id: string, userId?: string) {
+    // Se houver integração de download via n8n/Dropbox, usar primeiro
+    try {
+      const fromN8n = await this.n8nFilesService.getDownloadLink(id);
+      if (fromN8n?.url) {
+        return fromN8n;
+      }
+    } catch {
+      // fallback silencioso para storage local
+    }
+
     const file = await this.findOne(id, userId);
-    // Retorna caminho interno (nginx serve /storage)
+    const baseUrl = this.appConfig.get<string>('API_PUBLIC_URL') || 'http://localhost:4100';
     return {
-      url: `/storage/${file.filename}`,
+      url: `${baseUrl}/storage/${file.filename}`,
       filename: file.original_name,
     };
   }

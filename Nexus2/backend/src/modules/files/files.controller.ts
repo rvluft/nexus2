@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Delete,
   Param,
@@ -11,6 +12,7 @@ import {
   Req,
   UploadedFile,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { FilesService } from './files.service';
@@ -18,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('files')
 @Controller('files')
@@ -28,12 +31,13 @@ export class FilesController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload de arquivo para ingestão' })
   @ApiResponse({ status: 201, description: 'Arquivo registrado com sucesso' })
   async upload(
     @Req() request: Request,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile('file') file: Express.Multer.File,
   ) {
     if (!file) {
       throw new Error('Nenhum arquivo enviado');
@@ -71,6 +75,16 @@ export class FilesController {
   async reprocess(@Param('id', ParseUUIDPipe) id: string, @Req() request: Request) {
     const userId = (request.user as any).sub;
     return this.filesService.reprocess(id, userId);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Atualiza status do arquivo (kanban drag)' })
+  async updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('status') status: string,
+  ) {
+    return this.filesService.updateStatus(id, status);
   }
 
   @Delete(':id')

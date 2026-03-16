@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, AuditLog } from '../../lib/api';
+import { motion } from 'framer-motion';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -26,19 +27,24 @@ export default function AuditLogs() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-secondary mb-6">Logs de Auditoria</h1>
+      <h1 className="text-xl font-medium text-foreground mb-6">Logs de Auditoria</h1>
 
-      <div className="card">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="card overflow-hidden p-0"
+      >
         {loading ? (
-          <div className="p-8 text-center">Carregando...</div>
+          <div className="p-8 text-center text-muted-foreground">Carregando...</div>
         ) : logs.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-8 text-center text-muted-foreground">
             Nenhum log encontrado.
           </div>
         ) : (
           <table className="table">
             <thead>
-              <tr className="bg-gray-50 border-b">
+              <tr className="border-b border-border/60">
                 <th className="table-th">Data/Hora</th>
                 <th className="table-th">Usuário</th>
                 <th className="table-th">Ação</th>
@@ -46,33 +52,45 @@ export default function AuditLogs() {
                 <th className="table-th">IP</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border/30">
               {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50">
-                  <td className="table-td text-sm">{formatDate(log.created_at)}</td>
+                <tr key={log.id} className="hover:bg-secondary/20 transition-colors">
+                  <td className="table-td text-muted-foreground font-mono-data text-xs">
+                    {formatDate(log.created_at)}
+                  </td>
                   <td className="table-td">
                     {log.user ? (
                       <div>
-                        <p className="font-medium">{log.user.name}</p>
-                        <p className="text-xs text-gray-500">{log.user.email}</p>
+                        <p className="font-medium text-foreground">{log.user.name}</p>
+                        <p className="text-xs text-muted-foreground">{log.user.email}</p>
                       </div>
                     ) : (
-                      <span className="text-gray-400">Sistema</span>
+                      <span className="text-muted-foreground">Sistema</span>
                     )}
                   </td>
-                  <td className="table-td font-mono text-xs">{log.action}</td>
+                  <td className="table-td font-mono-data text-xs text-muted-foreground">
+                    {log.action}
+                  </td>
                   <td className="table-td">
-                    <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                    <span
+                      className="px-2 py-1 rounded-inner text-xs font-medium"
+                      style={{
+                        background: 'hsl(270 55% 50% / 0.15)',
+                        color: 'hsl(270 55% 65%)',
+                      }}
+                    >
                       {log.resource_type}
                     </span>
                   </td>
-                  <td className="table-td text-sm">{log.ip_address || '-'}</td>
+                  <td className="table-td font-mono-data text-xs text-muted-foreground">
+                    {log.ip_address || '-'}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }
