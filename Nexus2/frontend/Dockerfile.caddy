@@ -1,0 +1,30 @@
+# Nexus Frontend — build multi-stage com Caddy como servidor final
+# Substitui Dockerfile.prod (nginx) para deploy com Caddy
+
+# ── Stage 1: Build do React ────────────────────────────────────
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# VITE_API_URL deve ser relativo (/api) pois Caddy faz o proxy internamente
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# ── Stage 2: Caddy servindo os arquivos estáticos ──────────────
+FROM caddy:2-alpine AS production
+
+# Copia o build do React para o diretório que o Caddyfile aponta
+COPY --from=builder /app/dist /srv/frontend
+
+# O Caddyfile é montado via volume no docker-compose (não baked na imagem)
+# para facilitar ajustes sem rebuild
+
+EXPOSE 80 443 443/udp
+
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

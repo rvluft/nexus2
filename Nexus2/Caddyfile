@@ -1,0 +1,49 @@
+# Nexus2 — Caddyfile de produção
+# Caddy gerencia SSL automaticamente via Let's Encrypt
+# Substitui nginx host + certbot
+
+{$DOMAIN} {
+
+    # ── Compressão ──────────────────────────────────────────────
+    encode zstd gzip
+
+    # ── API (proxy para nexus-api) ──────────────────────────────
+    handle /api/* {
+        reverse_proxy nexus-api:4001 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # ── Storage (arquivos enviados) ─────────────────────────────
+    handle /storage/* {
+        reverse_proxy nexus-api:4001 {
+            header_up Host {host}
+        }
+    }
+
+    # ── Frontend SPA (servido por Caddy direto) ─────────────────
+    handle {
+        root * /srv/frontend
+        try_files {path} /index.html
+        file_server
+    }
+
+    # ── Headers de segurança ────────────────────────────────────
+    header {
+        X-Frame-Options DENY
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # ── Logs ────────────────────────────────────────────────────
+    log {
+        output file /var/log/caddy/nexus.log {
+            roll_size 10mb
+            roll_keep 7
+        }
+    }
+}

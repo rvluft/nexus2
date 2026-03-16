@@ -1,0 +1,90 @@
+version: '3.8'
+
+# Nexus2 — docker-compose para produção com Caddy
+# Substitui docker-compose.prod.yml (que usava nginx separado + certbot)
+#
+# Vantagens sobre o setup anterior:
+#   - SSL automático via Let's Encrypt (sem certbot manual)
+#   - Um container a menos (sem nginx host separado)
+#   - HTTP/2 e HTTP/3 (QUIC) nativos
+#   - Renovação de certificado automática e transparente
+
+services:
+
+  # ── Banco de dados ──────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: nexus-postgres
+    environment:
+      POSTGRES_DB:       ${DB_DATABASE:-nexus}
+      POSTGRES_USER:     ${DB_USERNAME:-nexus}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-nexus}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - nexus-network
+
+  # ── API NestJS ──────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexus-api          # nome usado no Caddyfile (reverse_proxy nexus-api:4001)
+    env_file: ./backend/.env
+    environment:
+      NODE_ENV:    production
+      LOG_LEVEL:   warn
+      API_PORT:    4001
+    volumes:
+      - uploads:/app/storage/uploads
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - nexus-network
+    # Sem exposição de porta ao host — Caddy acessa pela rede Docker
+
+  # ── Frontend + Caddy (SSL automático) ──────────────────────────
+  caddy:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.caddy
+      args:
+        VITE_API_URL: /api            # relativo: Caddy faz proxy internamente
+    container_name: nexus-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"                 # HTTP/3 (QUIC)
+    environment:
+      DOMAIN: ${DOMAIN}               # ex: nexus.empresa.com
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data              # certificados Let's Encrypt persistidos
+      - caddy_config:/config          # configuração em cache do Caddy
+      - caddy_logs:/var/log/caddy
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - nexus-network
+
+volumes:
+  postgres_data:
+  uploads:
+  caddy_data:
+  caddy_config:
+  caddy_logs:
+
+networks:
+  nexus-network:
+    driver: bridge
